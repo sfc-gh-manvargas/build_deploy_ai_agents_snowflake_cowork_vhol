@@ -681,15 +681,17 @@ LIMIT 5;
 -- ====================================================================
 
 
-CREATE OR REPLACE AGENT MARKETING_AGENT
+-- IF NOT EXISTS: re-running this script must never drop the agent or its
+-- committed versions (VERSION$1 baseline, VERSION$2 improved, ...).
+CREATE AGENT IF NOT EXISTS MARKETING_AGENT
 WITH PROFILE='{ "display_name": "MARKETING_AGENT" }'
     COMMENT=$$ Agent specializing in analyzing marketing campaigns for performance, ROI, feedback, etc. $$
 FROM SPECIFICATION $$
 {
     "models": {"orchestration": "claude-sonnet-5"},
     "instructions": {
-        "orchestration": "You are a marketing analytics agent. Plan before calling any tool: decide the minimum set of tools needed, then call each one as few times as possible.\n\nTOOL ROUTING\n- query_performance_metrics: quantitative questions (ROI, revenue, budget, impressions, clicks, conversions, CPC, CPA, engagement, trends over time, rankings, comparisons by channel/audience/type).\n- search_campaign_content: qualitative questions (campaign themes, messaging, marketing copy, A/B test results, customer feedback, recommended improvements, what made a campaign succeed, which campaigns are similar in strategy or context).\n- web_search: only for external/public information (industry benchmarks, regulations, third-party research, named external sources). Never use it for internal campaign data.\n- campaign-report skill: when the user asks to \"generate/create a report\" for a campaign. Follow the skill's workflow and do not add extra tool calls beyond what the skill requires.\n- code_execution: only when a calculation or chart cannot be done in SQL or directly from tool output. Do not use it for simple arithmetic.\n- Capability / \"what can you help with\" questions: answer directly without tools, describing only campaign performance analysis, campaign content insights, external market research, and campaign reports.\n\nMULTI-TOOL ORDER\n- Use more than one tool only when the question explicitly needs both kinds of evidence (e.g. \"themes AND financial metrics\", \"how does external data compare to our campaigns\").\n- Order: 1) query_performance_metrics for numbers, 2) search_campaign_content for qualitative context, 3) web_search for external context. Run independent calls in parallel when possible.\n- A question about \"performance\" of a named campaign is quantitative: use query_performance_metrics only, unless the user also asks for feedback, themes, or reasons.\n- \"Most alike / similar campaigns\" and \"most compelling A/B results\" are qualitative: use search_campaign_content. For \"most compelling\", compare all A/B results returned and pick the one with the strongest, best-quantified lift across multiple metrics, not just the first striking number.\n\nEFFICIENT TOOL CALLING\n- Ask query_performance_metrics ONE complete natural-language question that includes every metric, dimension, and filter you need. Do not split one question into several queries or re-query to restate the same data.\n- Do not repeat a search with a reworded query unless the first returned nothing relevant.\n- If a SQL call fails, retry at most once, fixing the specific error (use the error_correction parameter with the failed call id). Do not iterate through multiple guesses.\n- Stop calling tools as soon as you have enough evidence to answer.\n",
-        "response": "FORMAT\n- Lead with a one- to two-sentence direct answer to the question.\n- Then give supporting detail: use a markdown table for multi-row comparisons, rankings, or time series; use short bullets for qualitative findings.\n- Format numbers consistently: currency with $ and thousands separators, percentages with one decimal place, ROI as a percentage.\n- Name campaigns exactly as they appear in the data and cite the specific metrics behind each claim.\n- For external (web) information, cite the source name and key figures, including relevant demographic or segment breakdowns, then relate them to internal results when asked.\n- End with at most 1-2 brief, actionable insights or recommendations when relevant. Keep responses concise; no filler.\n\nACCURACY\n- Only state facts present in tool results. Do not invent metrics, campaigns, or capabilities.\n- Note data caveats that affect interpretation (e.g. partial periods, missing data).\n- If the question is ambiguous, state the interpretation you used.\n",
+        "orchestration": "",
+        "response": "",
         "sample_questions": [
       {
         "question": "What campaigns have the highest ROI?"
@@ -1026,6 +1028,164 @@ CALL EXECUTE_AI_EVALUATION(
   '@COWORK_AI_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config.yaml'
 );
 
+
+
+-- ====================================================================
+-- SECTION 13: OPTIMIZE AGENT INSTRUCTIONS -> VERSION$2
+-- ====================================================================
+-- Failure patterns found in BASELINE_MARKETING_AGENT_EVAL_RUN_V2 (VERSION$1):
+--   1. Redundant tool calls (one question split into 3-4 SQL calls, repeated searches)
+--   2. Trial-and-error SQL retries after invalid-identifier errors
+--   3. Qualitative questions ("most alike", "most compelling A/B") routed to SQL/code
+--   4. Unnecessary extra tools (search on "performance" questions, extras after report skill)
+--   5. Off-topic capability answers and incomplete external-source citations
+-- Fix: add orchestration + response instructions only. Tools, tool_resources
+-- and skills are identical to VERSION$1.
+
+USE ROLE COWORK_AI_HOL_ROLE;
+USE SCHEMA COWORK_AI_HOL_DB.AGENTS;
+
+-- Versions before the change (expect VERSION$1 alias BASELINE)
+SHOW VERSIONS IN AGENT MARKETING_AGENT;
+
+-- Update the mutable LIVE version with the improved instructions (idempotent)
+ALTER AGENT MARKETING_AGENT MODIFY LIVE VERSION SET SPECIFICATION = $$
+{
+    "models": {
+        "orchestration": "claude-sonnet-5"
+    },
+    "instructions": {
+        "response": "FORMAT\n- Lead with a one- to two-sentence direct answer to the question.\n- Then give supporting detail: use a markdown table for multi-row comparisons, rankings, or time series; use short bullets for qualitative findings.\n- Format numbers consistently: currency with $ and thousands separators, percentages with one decimal place, ROI as a percentage.\n- Name campaigns exactly as they appear in the data and cite the specific metrics behind each claim.\n- For external (web) information, cite the source name and key figures, including relevant demographic or segment breakdowns, then relate them to internal results when asked.\n- End with at most 1-2 brief, actionable insights or recommendations when relevant. Keep responses concise; no filler.\n\nACCURACY\n- Only state facts present in tool results. Do not invent metrics, campaigns, or capabilities.\n- Note data caveats that affect interpretation (e.g. partial periods, missing data).\n- If the question is ambiguous, state the interpretation you used.\n",
+        "orchestration": "You are a marketing analytics agent. Plan before calling any tool: decide the minimum set of tools needed, then call each one as few times as possible.\n\nTOOL ROUTING\n- query_performance_metrics: quantitative questions (ROI, revenue, budget, impressions, clicks, conversions, CPC, CPA, engagement, trends over time, rankings, comparisons by channel/audience/type).\n- search_campaign_content: qualitative questions (campaign themes, messaging, marketing copy, A/B test results, customer feedback, recommended improvements, what made a campaign succeed, which campaigns are similar in strategy or context).\n- web_search: only for external/public information (industry benchmarks, regulations, third-party research, named external sources). Never use it for internal campaign data.\n- campaign-report skill: when the user asks to \"generate/create a report\" for a campaign. Follow the skill's workflow and do not add extra tool calls beyond what the skill requires.\n- code_execution: only when a calculation or chart cannot be done in SQL or directly from tool output. Do not use it for simple arithmetic.\n- Capability / \"what can you help with\" questions: answer directly without tools, describing only campaign performance analysis, campaign content insights, external market research, and campaign reports.\n\nMULTI-TOOL ORDER\n- Use more than one tool only when the question explicitly needs both kinds of evidence (e.g. \"themes AND financial metrics\", \"how does external data compare to our campaigns\").\n- Order: 1) query_performance_metrics for numbers, 2) search_campaign_content for qualitative context, 3) web_search for external context. Run independent calls in parallel when possible.\n- A question about \"performance\" of a named campaign is quantitative: use query_performance_metrics only, unless the user also asks for feedback, themes, or reasons.\n- \"Most alike / similar campaigns\" and \"most compelling A/B results\" are qualitative: use search_campaign_content. For \"most compelling\", compare all A/B results returned and pick the one with the strongest, best-quantified lift across multiple metrics, not just the first striking number.\n\nEFFICIENT TOOL CALLING\n- Ask query_performance_metrics ONE complete natural-language question that includes every metric, dimension, and filter you need. Do not split one question into several queries or re-query to restate the same data.\n- Do not repeat a search with a reworded query unless the first returned nothing relevant.\n- If a SQL call fails, retry at most once, fixing the specific error (use the error_correction parameter with the failed call id). Do not iterate through multiple guesses.\n- Stop calling tools as soon as you have enough evidence to answer.\n",
+        "sample_questions": [
+            {
+                "question": "What campaigns have the highest ROI?"
+            }
+        ]
+    },
+    "tools": [
+        {
+            "tool_spec": {
+                "type": "cortex_analyst_text_to_sql",
+                "name": "query_performance_metrics",
+                "description": "Query structured performance data including campaign ROI, revenue, budget efficiency, impressions, clicks, conversions, cost metrics, and engagement rates. Use for quantitative analysis of campaign performance across channels and time periods."
+            }
+        },
+        {
+            "tool_spec": {
+                "type": "cortex_search",
+                "name": "search_campaign_content",
+                "description": "Search unstructured campaign content including campaign descriptions, marketing copy, A/B test results, customer feedback, and recommended improvements. Use for qualitative insights, content discovery, and learning from past campaigns."
+            }
+        },
+        {
+            "tool_spec": {
+                "type": "code_execution",
+                "name": "code_execution"
+            }
+        },
+        {
+            "tool_spec": {
+                "type": "web_search",
+                "name": "web_search"
+            }
+        }
+    ],
+    "skills": [
+        {
+            "name": "campaign-report",
+            "source": {
+                "type": "STAGE",
+                "path": "@COWORK_AI_HOL_DB.AGENTS.AGENT_SKILLS/skills/campaign-report"
+            }
+        }
+    ],
+    "tool_resources": {
+        "query_performance_metrics": {
+            "execution_environment": {
+                "query_timeout": 299,
+                "type": "warehouse",
+                "warehouse": "COWORK_AI_HOL_WH"
+            },
+            "semantic_view": "COWORK_AI_HOL_DB.AGENTS.MARKETING_PERFORMANCE_ANALYST"
+        },
+        "search_campaign_content": {
+            "execution_environment": {
+                "query_timeout": 299,
+                "type": "warehouse",
+                "warehouse": "COWORK_AI_HOL_WH"
+            },
+            "search_service": "COWORK_AI_HOL_DB.AGENTS.MARKETING_CAMPAIGNS_SEARCH"
+        },
+        "code_execution": {
+            "permission_policy": {
+                "type": "always_allow"
+            }
+        }
+    }
+}
+$$;
+
+-- Commit LIVE as VERSION$2 only if it does not exist yet, so re-runs never
+-- create duplicate versions. VERSION$1 is never modified.
+SHOW VERSIONS IN AGENT MARKETING_AGENT;
+EXECUTE IMMEDIATE '
+DECLARE
+  v2_exists INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO :v2_exists
+    FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))
+   WHERE "name" = ''VERSION$2'';
+  IF (v2_exists = 0) THEN
+    ALTER AGENT COWORK_AI_HOL_DB.AGENTS.MARKETING_AGENT COMMIT;
+    RETURN ''Committed VERSION$2'';
+  END IF;
+  RETURN ''VERSION$2 already exists - skipped commit'';
+END;
+';
+
+-- Versions after the change (expect VERSION$1 BASELINE + VERSION$2)
+SHOW VERSIONS IN AGENT MARKETING_AGENT;
+
+-- Eval config for VERSION$2: copy of the baseline config with only
+-- agent_version changed. The baseline config file is left untouched.
+COPY INTO @EVAL_CONFIG_STAGE/marketing_campaign_eval_config_version2.yaml
+FROM (SELECT REPLACE($1, 'agent_version: VERSION$1', 'agent_version: VERSION$2')
+      FROM @EVAL_CONFIG_STAGE/marketing_campaign_eval_config.yaml (FILE_FORMAT => 'yaml_format'))
+FILE_FORMAT = yaml_format
+SINGLE = TRUE
+OVERWRITE = TRUE
+HEADER = FALSE;
+
+-- Confirm both config files exist and the new one targets VERSION$2
+LS @COWORK_AI_HOL_DB.AGENTS.EVAL_CONFIG_STAGE;
+SELECT $1 FROM @EVAL_CONFIG_STAGE/marketing_campaign_eval_config_version2.yaml (FILE_FORMAT => 'yaml_format');
+
+-- Kickoff evaluation run against VERSION$2 (new run name)
+CALL EXECUTE_AI_EVALUATION(
+  'START',
+  OBJECT_CONSTRUCT('run_name', 'IMPROVED_MARKETING_AGENT_EVAL_RUN_VERSION2'),
+  '@COWORK_AI_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config_version2.yaml'
+);
+
+-- Check status of evaluation run (wait for COMPLETED)
+CALL EXECUTE_AI_EVALUATION(
+  'STATUS',
+  OBJECT_CONSTRUCT('run_name', 'IMPROVED_MARKETING_AGENT_EVAL_RUN_VERSION2'),
+  '@COWORK_AI_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config_version2.yaml'
+);
+
+-- Compare baseline (VERSION$1) vs improved (VERSION$2) mean scores per metric
+SELECT
+    record_attributes:"ai.observability.eval.metric_name"::string AS metric,
+    ROUND(AVG(IFF(record_attributes:"snow.ai.observability.run.name"::string = 'BASELINE_MARKETING_AGENT_EVAL_RUN_V2',
+                  record_attributes:"ai.observability.eval_root.score"::float, NULL)), 3) AS baseline_version1,
+    ROUND(AVG(IFF(record_attributes:"snow.ai.observability.run.name"::string = 'IMPROVED_MARKETING_AGENT_EVAL_RUN_VERSION2',
+                  record_attributes:"ai.observability.eval_root.score"::float, NULL)), 3) AS improved_version2
+FROM TABLE(SNOWFLAKE.LOCAL.GET_AI_OBSERVABILITY_EVENTS('COWORK_AI_HOL_DB', 'AGENTS', 'MARKETING_AGENT', 'CORTEX AGENT'))
+WHERE record_attributes:"ai.observability.span_type"::string = 'eval_root'
+GROUP BY metric
+ORDER BY metric;
 
 SELECT 'SETUP COMPLETE! Access your evaluation results at link below';
 SELECT 'https://app.snowflake.com/' || 
