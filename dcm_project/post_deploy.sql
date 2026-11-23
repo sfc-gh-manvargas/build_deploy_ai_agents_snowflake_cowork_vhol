@@ -82,10 +82,10 @@ COPY FILES INTO @AI_AGENT_HOL_DB.AGENTS.AGENT_SKILLS/skills/campaign-report/
     FILES = ('SKILL.md', 'render_report.py');
 COPY FILES INTO @AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE
     FROM @AI_AGENT_HOL_DB.DATA.CORTEX_AGENT_QUICKSTART_REPO/branches/main/dcm_project/files/evals/
-    FILES = ('marketing_campaign_eval_config.yaml',
-             'marketing_campaign_eval_config_dev_candidate.yaml',
-             'marketing_campaign_eval_config_holdout_baseline.yaml',
-             'marketing_campaign_eval_config_holdout_candidate.yaml');
+    FILES = ('eval_v1_dev.yaml',
+             'eval_v2_dev.yaml',
+             'eval_v1_holdout.yaml',
+             'eval_v2_holdout.yaml');
 ALTER STAGE AI_AGENT_HOL_DB.AGENTS.AGENT_SKILLS REFRESH;
 ALTER STAGE AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE REFRESH;
 
@@ -243,5 +243,5 @@ USE SCHEMA AI_AGENT_HOL_DB.AGENTS;
 CALL EXECUTE_AI_EVALUATION(
   'START',
   OBJECT_CONSTRUCT('run_name', 'MARKETING_AGENT_V1_DEV_R01'),
-  '@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config.yaml'
+  '@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/eval_v1_dev.yaml'
 );

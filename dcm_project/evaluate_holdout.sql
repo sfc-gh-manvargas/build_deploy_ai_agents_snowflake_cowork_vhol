@@ -15,7 +15,7 @@
 -- Promote VERSION$2 only if the HOLDOUT rows support it. If you tune again after
 -- looking at these results, HOLDOUT is no longer unseen.
 -- If your candidate is not VERSION$2, edit agent_version in
--- files/evals/marketing_campaign_eval_config_holdout_candidate.yaml and re-PUT it.
+-- files/evals/eval_v2_holdout.yaml and copy it to @AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE.
 -- ====================================================================
 USE ROLE AI_AGENT_HOL_ROLE;
 USE WAREHOUSE AI_AGENT_HOL_WH;
@@ -24,11 +24,11 @@ USE SCHEMA AI_AGENT_HOL_DB.AGENTS;
 CALL EXECUTE_AI_EVALUATION(
   'START',
   OBJECT_CONSTRUCT('run_name', 'MARKETING_AGENT_V1_HOLDOUT_R01'),
-  '@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config_holdout_baseline.yaml'
+  '@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/eval_v1_holdout.yaml'
 );
 
 CALL EXECUTE_AI_EVALUATION(
   'START',
   OBJECT_CONSTRUCT('run_name', 'MARKETING_AGENT_V2_HOLDOUT_R01'),
-  '@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config_holdout_candidate.yaml'
+  '@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/eval_v2_holdout.yaml'
 );
