@@ -4,7 +4,7 @@ default_target: 'DEV'
 
 targets:
   DEV:
-    account_identifier: MLC21604
+    account_identifier: GZHNWTT-HQ96963
     project_name: 'AI_AGENT_HOL_ADMIN.DCM.AI_AGENT_HOL'
     project_owner: ACCOUNTADMIN
     templating_config: 'DEV'
