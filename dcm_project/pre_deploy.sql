@@ -14,12 +14,13 @@ USE ROLE ACCOUNTADMIN;
 ALTER ACCOUNT SET ENABLE_CORTEX_WEBSEARCH = TRUE;
 
 -- Needed before the DCM deploy, to create the Workspace from Git.
--- Properties match the DEFINE in sources/definitions/infrastructure.sql, so the deploy adopts it unchanged.
+-- Managed here only (not DEFINEd in the DCM project).
 CREATE API INTEGRATION IF NOT EXISTS GIT_API_INTEGRATION_AI_AGENT_HOL
     API_PROVIDER = git_https_api
     API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-manvargas/')
     ENABLED = TRUE
     COMMENT = 'Public GitHub access for the AI agent HOL repo';
+    
 
 -- Home for the DCM project object
 CREATE DATABASE IF NOT EXISTS AI_AGENT_HOL_ADMIN
