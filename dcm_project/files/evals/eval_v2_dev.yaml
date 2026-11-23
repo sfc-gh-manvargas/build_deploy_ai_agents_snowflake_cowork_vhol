@@ -31,7 +31,7 @@ metrics:
 
   # Groundedness metric - TruLens Agent GPA based evaluation
   # Evaluates whether the agent's response is supported by the execution trace
-  - name: groundedness
+  - name: campaign_groundedness
     model: "claude-sonnet-4-6"
     score_ranges:
       min_score: [0, 0.33]
@@ -84,7 +84,7 @@ metrics:
 
   # Execution Efficiency metric - TruLens Agent GPA based evaluation
   # Evaluates how optimally the agent uses its available tools to accomplish the user's goal
-  - name: execution_efficiency
+  - name: campaign_execution_efficiency
     model: "claude-sonnet-4-6"
     score_ranges:
       min_score: [0, 0.33]
