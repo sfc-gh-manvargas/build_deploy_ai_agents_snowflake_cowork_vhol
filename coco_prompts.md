@@ -28,7 +28,7 @@ Use the agent-studio skill.
 
 ```
 Start an evaluation with run name MARKETING_AGENT_V2_DEV_R01 using
-@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config_dev_candidate.yaml.
+@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/eval_v2_dev.yaml.
 When it finishes, compare it with MARKETING_AGENT_V1_DEV_R01: scores by metric, and which questions improved, stayed the same, or regressed.
 Use the agent-studio skill.
 ```
@@ -48,4 +48,4 @@ Recommend whether to promote VERSION$2 based on the held-out results, and say wh
 ## Your turn (optional)
 
 Try another improvement, for example better tool descriptions or a different orchestration model.
-Commit each change as the next version (`VERSION$3`, ...) and ask CoCo to evaluate it on the development questions with a new run name (`MARKETING_AGENT_V3_DEV_R01`), using a copy of the dev candidate config with the new version.
+Commit each change as the next version (`VERSION$3`, ...) and ask CoCo to evaluate it on the development questions with a new run name (`MARKETING_AGENT_V3_DEV_R01`), using a copy of `eval_v2_dev.yaml` saved as `eval_v3_dev.yaml` with the new version.
