@@ -17,7 +17,7 @@ ALTER ACCOUNT SET ENABLE_CORTEX_WEBSEARCH = TRUE;
 -- Properties match the DEFINE in sources/definitions/infrastructure.sql, so the deploy adopts it unchanged.
 CREATE API INTEGRATION IF NOT EXISTS GIT_API_INTEGRATION_AI_AGENT_HOL
     API_PROVIDER = git_https_api
-    API_ALLOWED_PREFIXES = ('https://github.com/Snowflake-Labs/')
+    API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-manvargas/')
     ENABLED = TRUE
     COMMENT = 'Public GitHub access for the AI agent HOL repo';
 

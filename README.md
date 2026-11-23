@@ -12,7 +12,7 @@ Everything runs in Snowsight as **ACCOUNTADMIN**. The lab is a [DCM project](htt
 1. **Prepare the account.** In Snowsight, open a new SQL file, paste in [`dcm_project/pre_deploy.sql`](dcm_project/pre_deploy.sql), and run all.
    > This turns on Cortex web search for the whole account (needed by the agent's web search tool). Review it with your admin first.
 2. **Open the lab in a Workspace.** Go to **Projects > Workspaces**, then **Create Workspace > From Git repository**:
-   - Repository URL: `https://github.com/Snowflake-Labs/build_deploy_ai_agents_snowflake_cowork_vhol.git`
+   - Repository URL: `https://github.com/sfc-gh-manvargas/build_deploy_ai_agents_snowflake_cowork_vhol.git`
    - API integration: `GIT_API_INTEGRATION_AI_AGENT_HOL`
    - Select **Public repository**, then **Create**.
 3. **Deploy the DCM project.** In the workspace, select the `dcm_project` project, run **Plan**, review the changes, then **Deploy**.

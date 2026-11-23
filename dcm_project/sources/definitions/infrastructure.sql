@@ -20,11 +20,11 @@ WITH
     AUTO_RESUME = TRUE
     COMMENT = 'Warehouse for the AI agent HOL';
 
--- Lab code/data repo (Snowflake-Labs). The git repository object itself is
+-- Lab code/data repo (sfc-gh-manvargas). The git repository object itself is
 -- created in post_deploy.sql (GIT REPOSITORY is not DEFINE-able).
 DEFINE API INTEGRATION GIT_API_INTEGRATION_AI_AGENT_HOL
     API_PROVIDER = git_https_api
-    API_ALLOWED_PREFIXES = ('https://github.com/Snowflake-Labs/')
+    API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-manvargas/')
     ENABLED = TRUE
     COMMENT = 'Public GitHub access for the AI agent HOL repo';
 

@@ -25,7 +25,7 @@ GRANT MONITOR ON FUTURE AGENTS IN SCHEMA AI_AGENT_HOL_DB.AGENTS TO ROLE ACCOUNTA
 -- --------------------------------------------------------------------
 CREATE OR REPLACE GIT REPOSITORY AI_AGENT_HOL_DB.DATA.CORTEX_AGENT_QUICKSTART_REPO
     API_INTEGRATION = GIT_API_INTEGRATION_AI_AGENT_HOL
-    ORIGIN = 'https://github.com/Snowflake-Labs/build_deploy_ai_agents_snowflake_cowork_vhol.git';
+    ORIGIN = 'https://github.com/sfc-gh-manvargas/build_deploy_ai_agents_snowflake_cowork_vhol.git';
 ALTER GIT REPOSITORY AI_AGENT_HOL_DB.DATA.CORTEX_AGENT_QUICKSTART_REPO FETCH;
 
 TRUNCATE TABLE AI_AGENT_HOL_DB.DATA.CAMPAIGNS;
