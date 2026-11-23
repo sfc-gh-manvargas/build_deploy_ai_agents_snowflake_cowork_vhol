@@ -1187,6 +1187,161 @@ WHERE record_attributes:"ai.observability.span_type"::string = 'eval_root'
 GROUP BY metric
 ORDER BY metric;
 
+
+
+-- ====================================================================
+-- SECTION 14: IMPROVE SEMANTIC VIEW (facts, descriptions, synonyms, VQRs)
+-- ====================================================================
+-- Semantic-view issues found in the eval traces (query_performance_metrics):
+--   1. Metric names used as columns (SUM(total_revenue), __campaigns.total_budget)
+--      -> invalid identifier errors, retries, low tool_execution_accuracy
+--   2. No descriptions/synonyms ("spend", "CTR", "engagement" ambiguous)
+--   3. Derived measures (CTR, conversion rate, duration) re-invented per query
+--   4. No verified queries to anchor common SQL patterns
+-- Fix: replace MARKETING_PERFORMANCE_ANALYST in place (same name, so the agent
+-- spec and its versions are unchanged). Section 6 keeps the original definition
+-- so the baseline and VERSION$2 evals above replay against the original view.
+-- NOTE: to validate without creating, change the final argument FALSE -> TRUE.
+
+USE ROLE COWORK_AI_HOL_ROLE;
+USE SCHEMA COWORK_AI_HOL_DB.AGENTS;
+
+CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('COWORK_AI_HOL_DB.AGENTS', $$
+name: MARKETING_PERFORMANCE_ANALYST
+description: >
+  Marketing campaign performance and ROI. One row per campaign in campaigns; one row per
+  campaign per day in performance. Always aggregate FACTS (e.g. SUM(revenue_generated)),
+  never reference metric names as columns.
+tables:
+  - name: campaigns
+    description: One row per marketing campaign with budget, channel, audience and dates.
+    base_table: {database: COWORK_AI_HOL_DB, schema: AGENTS, table: CAMPAIGNS}
+    primary_key: {columns: [campaign_id]}
+    dimensions:
+      - {name: campaign_id, expr: campaign_id, data_type: NUMBER, description: Unique campaign identifier (campaign number)., synonyms: [campaign number, campaign #]}
+      - {name: campaign_name, expr: campaign_name, data_type: VARCHAR, description: Campaign display name. Use ILIKE for partial name matches., synonyms: [campaign, campaign title]}
+      - {name: campaign_type, expr: campaign_type, data_type: VARCHAR, description: Campaign objective category (e.g. Retention, Acquisition, Seasonal)., synonyms: [type, objective, category]}
+      - {name: channel, expr: channel, data_type: VARCHAR, description: Marketing channel (email, social, search, ...)., synonyms: [medium, marketing channel, platform]}
+      - {name: target_audience, expr: target_audience, data_type: VARCHAR, description: Audience segment the campaign targets., synonyms: [audience, segment, target segment]}
+      - {name: status, expr: status, data_type: VARCHAR, description: Campaign lifecycle status (e.g. completed, active)., synonyms: [campaign status]}
+      - {name: created_by, expr: created_by, data_type: VARCHAR, description: Campaign owner., synonyms: [owner, manager]}
+    time_dimensions:
+      - {name: start_date, expr: start_date, data_type: DATE, description: Campaign start date., synonyms: [launch date]}
+      - {name: end_date, expr: end_date, data_type: DATE, description: Campaign end date.}
+    facts:
+      - {name: budget_allocated, expr: budget_allocated, data_type: NUMBER, description: Budget allocated to the campaign in USD. Aggregate with SUM., synonyms: [budget, spend, cost, investment]}
+      - {name: campaign_duration_days, expr: "DATEDIFF('day', start_date, end_date) + 1", data_type: NUMBER, description: Campaign length in days (inclusive)., synonyms: [duration, length, campaign length]}
+    metrics:
+      - {name: total_budget, expr: SUM(budget_allocated), description: Total allocated budget in USD., synonyms: [total spend, total cost]}
+      - {name: campaign_count, expr: COUNT(DISTINCT campaign_id), description: Number of distinct campaigns., synonyms: [number of campaigns]}
+  - name: performance
+    description: Daily performance per campaign. Sum volume facts across days; average rate facts.
+    base_table: {database: COWORK_AI_HOL_DB, schema: AGENTS, table: CAMPAIGN_PERFORMANCE}
+    primary_key: {columns: [performance_id]}
+    dimensions:
+      - {name: performance_id, expr: performance_id, data_type: NUMBER, description: Daily performance row id.}
+      - {name: performance_campaign_id, expr: campaign_id, data_type: NUMBER, description: Campaign id (join key to campaigns).}
+    time_dimensions:
+      - {name: date, expr: date, data_type: DATE, description: Performance date. Use DATE_TRUNC('month', date) for monthly trends., synonyms: [day, performance date, month, period]}
+    facts:
+      - {name: impressions, expr: impressions, data_type: NUMBER, description: Daily ad impressions., synonyms: [views, reach]}
+      - {name: clicks, expr: clicks, data_type: NUMBER, description: Daily clicks.}
+      - {name: conversions, expr: conversions, data_type: NUMBER, description: Daily conversions., synonyms: [sales, signups, purchases]}
+      - {name: revenue_generated, expr: revenue_generated, data_type: NUMBER, description: Daily revenue in USD. Aggregate with SUM., synonyms: [revenue, sales revenue, income]}
+      - {name: cost_per_click, expr: cost_per_click, data_type: NUMBER, description: Daily CPC in USD., synonyms: [CPC]}
+      - {name: cost_per_acquisition, expr: cost_per_acquisition, data_type: NUMBER, description: Daily CPA in USD., synonyms: [CPA, cost per conversion]}
+      - {name: roi_percentage, expr: roi_percentage, data_type: NUMBER, description: Daily ROI as a percentage (e.g. 150 = 150%)., synonyms: [ROI, return on investment]}
+      - {name: engagement_rate, expr: engagement_rate, data_type: NUMBER, description: Daily engagement rate as a fraction (0.05 = 5%)., synonyms: [engagement]}
+    metrics:
+      - {name: total_revenue, expr: SUM(revenue_generated), description: Total revenue in USD., synonyms: [revenue, total sales]}
+      - {name: total_impressions, expr: SUM(impressions), description: Total impressions.}
+      - {name: total_clicks, expr: SUM(clicks), description: Total clicks.}
+      - {name: total_conversions, expr: SUM(conversions), description: Total conversions.}
+      - {name: avg_cost_per_click, expr: AVG(cost_per_click), description: Average daily CPC in USD., synonyms: [average CPC]}
+      - {name: avg_cost_per_acquisition, expr: AVG(cost_per_acquisition), description: Average daily CPA in USD., synonyms: [average CPA]}
+      - {name: avg_roi, expr: AVG(roi_percentage), description: Average daily ROI percentage. Use to rank campaigns by ROI., synonyms: [ROI, average ROI, return]}
+      - {name: avg_engagement_rate, expr: AVG(engagement_rate), description: Average daily engagement rate (fraction)., synonyms: [engagement, engagement rate]}
+      - {name: click_through_rate, expr: SUM(clicks) / NULLIF(SUM(impressions), 0), description: Clicks divided by impressions (fraction)., synonyms: [CTR, click rate]}
+      - {name: conversion_rate, expr: SUM(conversions) / NULLIF(SUM(clicks), 0), description: Conversions divided by clicks (fraction)., synonyms: [CVR]}
+relationships:
+  - name: performance_to_campaigns
+    left_table: performance
+    right_table: campaigns
+    relationship_columns: [{left_column: performance_campaign_id, right_column: campaign_id}]
+    join_type: left_outer
+    relationship_type: many_to_one
+verified_queries:
+  - name: campaigns_ranked_by_roi
+    question: Which campaigns have the highest ROI?
+    use_as_onboarding_question: true
+    sql: |
+      SELECT c.campaign_name, AVG(p.roi_percentage) AS avg_roi, SUM(p.revenue_generated) AS total_revenue
+      FROM __performance AS p JOIN __campaigns AS c ON p.performance_campaign_id = c.campaign_id
+      GROUP BY c.campaign_name ORDER BY avg_roi DESC NULLS LAST
+  - name: single_campaign_full_performance
+    question: Show the full performance summary for one campaign by name
+    sql: |
+      SELECT c.campaign_id, c.campaign_name, c.campaign_type, c.channel, c.target_audience, c.start_date, c.end_date,
+             MAX(c.budget_allocated) AS budget, SUM(p.impressions) AS impressions, SUM(p.clicks) AS clicks,
+             SUM(p.conversions) AS conversions, SUM(p.revenue_generated) AS revenue, AVG(p.roi_percentage) AS avg_roi,
+             AVG(p.cost_per_click) AS avg_cpc, AVG(p.cost_per_acquisition) AS avg_cpa, AVG(p.engagement_rate) AS avg_engagement_rate
+      FROM __campaigns AS c LEFT JOIN __performance AS p ON p.performance_campaign_id = c.campaign_id
+      WHERE c.campaign_name ILIKE '%Black Friday%'
+      GROUP BY c.campaign_id, c.campaign_name, c.campaign_type, c.channel, c.target_audience, c.start_date, c.end_date
+  - name: monthly_revenue_trend
+    question: How has revenue trended month over month?
+    sql: |
+      SELECT DATE_TRUNC('month', p.date) AS month, SUM(p.revenue_generated) AS total_revenue
+      FROM __performance AS p GROUP BY month ORDER BY month
+  - name: channel_click_through_rate
+    question: What is the click-through rate by channel?
+    sql: |
+      SELECT c.channel, SUM(p.clicks) AS clicks, SUM(p.impressions) AS impressions,
+             SUM(p.clicks) / NULLIF(SUM(p.impressions), 0) AS click_through_rate
+      FROM __performance AS p JOIN __campaigns AS c ON p.performance_campaign_id = c.campaign_id
+      GROUP BY c.channel ORDER BY click_through_rate DESC
+  - name: duration_budget_revenue_by_campaign
+    question: How do campaign duration and budget relate to revenue by target audience?
+    sql: |
+      SELECT c.target_audience, c.campaign_name, DATEDIFF('day', c.start_date, c.end_date) + 1 AS duration_days,
+             MAX(c.budget_allocated) AS budget, SUM(p.revenue_generated) AS total_revenue
+      FROM __campaigns AS c LEFT JOIN __performance AS p ON p.performance_campaign_id = c.campaign_id
+      GROUP BY c.target_audience, c.campaign_name, duration_days ORDER BY c.target_audience, total_revenue DESC
+$$, FALSE);
+
+-- Verify the improved semantic view
+SHOW SEMANTIC VIEWS LIKE 'MARKETING_PERFORMANCE_ANALYST';
+DESCRIBE SEMANTIC VIEW MARKETING_PERFORMANCE_ANALYST;
+
+-- Re-evaluate the unchanged VERSION$2 against the improved semantic view
+-- (new run name isolates the semantic-view gain from the instruction gain)
+CALL EXECUTE_AI_EVALUATION(
+  'START',
+  OBJECT_CONSTRUCT('run_name', 'IMPROVED_SV_MARKETING_AGENT_EVAL_RUN_VERSION2'),
+  '@COWORK_AI_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config_version2.yaml'
+);
+
+-- Check status of evaluation run (wait for COMPLETED)
+CALL EXECUTE_AI_EVALUATION(
+  'STATUS',
+  OBJECT_CONSTRUCT('run_name', 'IMPROVED_SV_MARKETING_AGENT_EVAL_RUN_VERSION2'),
+  '@COWORK_AI_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/marketing_campaign_eval_config_version2.yaml'
+);
+
+-- Three-way comparison: baseline -> improved instructions -> improved semantic view
+SELECT
+    record_attributes:"ai.observability.eval.metric_name"::string AS metric,
+    ROUND(AVG(IFF(record_attributes:"snow.ai.observability.run.name"::string = 'BASELINE_MARKETING_AGENT_EVAL_RUN_V2',
+                  record_attributes:"ai.observability.eval_root.score"::float, NULL)), 3) AS baseline_version1,
+    ROUND(AVG(IFF(record_attributes:"snow.ai.observability.run.name"::string = 'IMPROVED_MARKETING_AGENT_EVAL_RUN_VERSION2',
+                  record_attributes:"ai.observability.eval_root.score"::float, NULL)), 3) AS improved_version2,
+    ROUND(AVG(IFF(record_attributes:"snow.ai.observability.run.name"::string = 'IMPROVED_SV_MARKETING_AGENT_EVAL_RUN_VERSION2',
+                  record_attributes:"ai.observability.eval_root.score"::float, NULL)), 3) AS improved_sv_version2
+FROM TABLE(SNOWFLAKE.LOCAL.GET_AI_OBSERVABILITY_EVENTS('COWORK_AI_HOL_DB', 'AGENTS', 'MARKETING_AGENT', 'CORTEX AGENT'))
+WHERE record_attributes:"ai.observability.span_type"::string = 'eval_root'
+GROUP BY metric
+ORDER BY metric;
+
 SELECT 'SETUP COMPLETE! Access your evaluation results at link below';
 SELECT 'https://app.snowflake.com/' || 
        LOWER(CURRENT_ORGANIZATION_NAME()) || '/' || 
