@@ -227,6 +227,10 @@ USE ROLE AI_AGENT_HOL_ROLE;
 
 -- Evaluation datasets: DEV (tune) and HOLDOUT (decide). Only the DEV baseline runs here;
 -- held-out runs wait until a candidate is frozen (see evaluate_holdout.sql).
+-- Drop first so re-runs don't fail with "Dataset version ... already exists".
+DROP DATASET IF EXISTS AI_AGENT_HOL_DB.AGENTS.MARKETING_CAMPAIGN_EVALSET_DEV;
+DROP DATASET IF EXISTS AI_AGENT_HOL_DB.AGENTS.MARKETING_CAMPAIGN_EVALSET_HOLDOUT;
+
 CALL SYSTEM$CREATE_EVALUATION_DATASET(
     'Cortex Agent',
     'AI_AGENT_HOL_DB.DATA.EVALS_TABLE_DEV',
