@@ -31,11 +31,3 @@ ALTER STAGE AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE REFRESH;
 SELECT t.$1 AS line
 FROM @AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/eval_v1_dev.yaml t
 WHERE t.$1 ILIKE '%- name:%';
-
--- 5. Re-run the DEV baseline under a NEW run name (R01 already exists
---    with the old config). Bump R02 -> R03 etc. on each retry.
-CALL EXECUTE_AI_EVALUATION(
-  'START',
-  OBJECT_CONSTRUCT('run_name', 'MARKETING_AGENT_V1_DEV_R02'),
-  '@AI_AGENT_HOL_DB.AGENTS.EVAL_CONFIG_STAGE/eval_v1_dev.yaml'
-);
