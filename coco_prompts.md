@@ -50,7 +50,14 @@ Recommend whether to promote VERSION$2 based on the held-out results, and say wh
 
 ---
 
-## Your turn (optional)
+## Prompt 4 
 
+<<<<<<< HEAD
+```
+Try another improvement, for example fixing the semantic view.
+Commit each change as the next version (`VERSION$3`, ...) and ask CoCo to evaluate it on the development questions with a new run name (`MARKETING_AGENT_V3_DEV_R01`), using a copy of `eval_v2_dev.yaml` saved as `eval_v3_dev.yaml` with the new version.
+```
+=======
 Try another improvement, for example better tool descriptions or a different orchestration model.
 Commit each change as the next version (`VERSION$3`, ...) and ask CoCo to evaluate it on the development questions with a new run name (`MARKETING_AGENT_V3_DEV_R01`), using a copy of `eval_v2_dev.yaml` saved as `eval_v3_dev.yaml` with the new version. As in Prompt 2, tell CoCo to start the run as `AI_AGENT_HOL_ROLE`.
+>>>>>>> e97888fef7f94a034ba435e925617b02fb9a2028
