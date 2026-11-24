@@ -45,7 +45,9 @@ Recommend whether to promote VERSION$2 based on the held-out results, and say wh
 
 ---
 
-## Your turn (optional)
+## Prompt 4 
 
-Try another improvement, for example better tool descriptions or a different orchestration model.
+```
+Try another improvement, for example fixing the semantic view.
 Commit each change as the next version (`VERSION$3`, ...) and ask CoCo to evaluate it on the development questions with a new run name (`MARKETING_AGENT_V3_DEV_R01`), using a copy of `eval_v2_dev.yaml` saved as `eval_v3_dev.yaml` with the new version.
+```
